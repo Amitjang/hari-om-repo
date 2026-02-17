@@ -1,9 +1,14 @@
 const Product = require("../models/product.model");
+const Category = require("../models/category.model");
 
 exports.createProduct = async (req, res) => {
   try {
     const product = new Product(req.body);
     await product.save();
+      await Category.findByIdAndUpdate(
+      req.body.category,
+      { $inc: { productCount: 1 } }
+    );
     res.status(201).json(product);
   } catch (error) {
     res.status(400).json({ error: error.message });
