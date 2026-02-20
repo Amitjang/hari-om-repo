@@ -127,3 +127,36 @@ exports.updateOrderStatus = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+exports.deleteOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    // ❌ Block deletion if not cancelled
+    if (order.status !== "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Only cancelled orders can be deleted"
+      });
+    }
+
+    await order.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Order deleted successfully"
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
