@@ -1,4 +1,5 @@
 const Category = require("../models/category.model");
+const Product = require("../models/product.model");
 const fs = require("fs");
 const path = require("path");
 
@@ -94,6 +95,8 @@ exports.updateCategory = async (req, res) => {
 
 /* ================= DELETE ================= */
 
+
+
 exports.deleteCategory = async (req, res) => {
   try {
     const category = await Category.findById(req.params.id);
@@ -102,16 +105,23 @@ exports.deleteCategory = async (req, res) => {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    if (category.image) {
-      const imagePath = path.join(__dirname, "..", category.image);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
+    // 🔥 CHECK IF PRODUCTS EXIST
+    const productsCount = await Product.countDocuments({
+      category: req.params.id,
+    });
+
+    if (productsCount > 0) {
+      return res.status(400).json({
+        error: "Cannot delete category. Products exist in this category.",
+      });
     }
 
     await Category.findByIdAndDelete(req.params.id);
 
-    res.json({ success: true, message: "Category deleted" });
+    res.json({
+      success: true,
+      message: "Category deleted successfully",
+    });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
