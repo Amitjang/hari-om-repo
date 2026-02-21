@@ -59,36 +59,28 @@ exports.createProduct = async (req, res) => {
 
 /* ================= UPDATE ================= */
 
-exports.updateProduct = async (req, res) => {
+exports.updateCategory = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const category = await Category.findById(req.params.id);
 
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
     }
 
-    let imagePath = product.image;
+    let imagePath = category.image;
 
-    // If new image uploaded
     if (req.file) {
-
-      // Delete old image
-      if (product.image) {
-        const oldImagePath = path.join(
-          __dirname,
-          "..",
-          product.image
-        );
-
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
+      if (category.image) {
+        const oldImage = path.join(__dirname, "..", category.image);
+        if (fs.existsSync(oldImage)) {
+          fs.unlinkSync(oldImage);
         }
       }
 
       imagePath = `/uploads/${req.file.filename}`;
     }
 
-    const updatedProduct = await Product.findByIdAndUpdate(
+    const updated = await Category.findByIdAndUpdate(
       req.params.id,
       {
         ...req.body,
@@ -97,51 +89,35 @@ exports.updateProduct = async (req, res) => {
       { new: true }
     );
 
-    res.json({
-      success: true,
-      data: updatedProduct,
-    });
+    res.json({ success: true, data: updated });
 
   } catch (error) {
-    res.status(500).json({
-      error: error.message,
-    });
+    res.status(500).json({ error: error.message });
   }
 };
 
 /* ================= DELETE ================= */
 
-exports.deleteProduct = async (req, res) => {
+exports.deleteCategory = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const category = await Category.findById(req.params.id);
 
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
     }
 
-    // Delete image file
-    if (product.image) {
-      const imagePath = path.join(
-        __dirname,
-        "..",
-        product.image
-      );
-
+    if (category.image) {
+      const imagePath = path.join(__dirname, "..", category.image);
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
       }
     }
 
-    await Product.findByIdAndDelete(req.params.id);
+    await Category.findByIdAndDelete(req.params.id);
 
-    res.json({
-      success: true,
-      message: "Product deleted successfully",
-    });
+    res.json({ success: true, message: "Category deleted" });
 
   } catch (error) {
-    res.status(500).json({
-      error: error.message,
-    });
+    res.status(500).json({ error: error.message });
   }
 };
