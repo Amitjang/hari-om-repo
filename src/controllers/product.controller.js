@@ -59,19 +59,19 @@ exports.createProduct = async (req, res) => {
 
 /* ================= UPDATE ================= */
 
-exports.updateCategory = async (req, res) => {
+exports.updateProduct = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const product = await Product.findById(req.params.id);
 
-    if (!category) {
-      return res.status(404).json({ error: "Category not found" });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
     }
 
-    let imagePath = category.image;
+    let imagePath = product.image;
 
     if (req.file) {
-      if (category.image) {
-        const oldImage = path.join(__dirname, "..", category.image);
+      if (product.image) {
+        const oldImage = path.join(__dirname, "..", product.image);
         if (fs.existsSync(oldImage)) {
           fs.unlinkSync(oldImage);
         }
@@ -80,7 +80,7 @@ exports.updateCategory = async (req, res) => {
       imagePath = `/uploads/${req.file.filename}`;
     }
 
-    const updated = await Category.findByIdAndUpdate(
+    const updated = await Product.findByIdAndUpdate(
       req.params.id,
       {
         ...req.body,
@@ -96,26 +96,27 @@ exports.updateCategory = async (req, res) => {
   }
 };
 
+
 /* ================= DELETE ================= */
 
-exports.deleteCategory = async (req, res) => {
+exports.deleteProduct = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const product = await Product.findById(req.params.id);
 
-    if (!category) {
-      return res.status(404).json({ error: "Category not found" });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
     }
 
-    if (category.image) {
-      const imagePath = path.join(__dirname, "..", category.image);
+    if (product.image) {
+      const imagePath = path.join(__dirname, "..", product.image);
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
       }
     }
 
-    await Category.findByIdAndDelete(req.params.id);
+    await Product.findByIdAndDelete(req.params.id);
 
-    res.json({ success: true, message: "Category deleted" });
+    res.json({ success: true, message: "Product deleted" });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
