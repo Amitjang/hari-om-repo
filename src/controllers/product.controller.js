@@ -1,19 +1,9 @@
 const Product = require("../models/product.model");
 const Category = require("../models/category.model");
+const fs = require("fs");
+const path = require("path");
 
-exports.createProduct = async (req, res) => {
-  try {
-    const product = new Product(req.body);
-    await product.save();
-      await Category.findByIdAndUpdate(
-      req.body.category,
-      { $inc: { productCount: 1 } }
-    );
-    res.status(201).json(product);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
+/* ================= GET ALL ================= */
 
 exports.getAllProducts = async (req, res) => {
   try {
@@ -23,29 +13,135 @@ exports.getAllProducts = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+/* ================= GET BY ID ================= */
+
 exports.getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id); 
-    if (!product) {
-      return res.status(200).json({ error: "Product not found" });
-    }
-    res.status(200).json({status: "success", data: product });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  } };
-  exports.updateProduct = async (req, res) => {try{
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const product = await Product.findById(req.params.id)
+      .populate("category", "name");
+
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
-    } res.status(200).json({status: "success", data: product });
+    }
+
+    res.json({ success: true, data: product });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });   }
-  };
-  exports.deleteProduct = async (req, res) => {
-    try {
-      const product = await Product.findByIdAndDelete(req.params.id); 
-      if (!product) {
-        return res.status(404).json({ error: "Product not found" });
-      } res.status(200).json({status: "success", message: "Product deleted" });
-    } catch (error) {
-      res.status(500).json({ error: error.message });   } };
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* ================= CREATE ================= */
+
+exports.createProduct = async (req, res) => {
+  try {
+    const imagePath = req.file
+      ? `/uploads/${req.file.filename}`
+      : null;
+
+    const product = await Product.create({
+      ...req.body,
+      image: imagePath,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: product,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+    });
+  }
+};
+
+/* ================= UPDATE ================= */
+
+exports.updateProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    let imagePath = product.image;
+
+    // If new image uploaded
+    if (req.file) {
+
+      // Delete old image
+      if (product.image) {
+        const oldImagePath = path.join(
+          __dirname,
+          "..",
+          product.image
+        );
+
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+
+      imagePath = `/uploads/${req.file.filename}`;
+    }
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...req.body,
+        image: imagePath,
+      },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      data: updatedProduct,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+    });
+  }
+};
+
+/* ================= DELETE ================= */
+
+exports.deleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Delete image file
+    if (product.image) {
+      const imagePath = path.join(
+        __dirname,
+        "..",
+        product.image
+      );
+
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    }
+
+    await Product.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: "Product deleted successfully",
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+    });
+  }
+};

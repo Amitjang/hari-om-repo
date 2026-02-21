@@ -12,6 +12,7 @@ router.post("/createOrder", createOrder);
 // ✅ Get all orders (Admin)
 router.get("/getAllOrders", getAllOrders);
 router.get('/getOrdersByCustomer/:customerId', getOrdersByCustomer);
+
 router.put('/updateOrderStatus/:id', updateOrderStatus);
 router.delete('/deleteOrder/:id', deleteOrder);
 

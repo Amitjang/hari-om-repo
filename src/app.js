@@ -21,6 +21,7 @@ app.use("/products", productRoutes);
 app.use("/orders", orderRoutes);
 app.use("/categories", categoryRoutes);  
 app.use("/auth", authRoutes);
+app.use("/uploads", express.static("uploads"));
 
 
 module.exports = app;

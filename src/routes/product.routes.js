@@ -1,24 +1,37 @@
 const express = require("express");
 const router = express.Router();
 
+const upload = require("../middlewares/upload");
+
 const {
   createProduct,
   getAllProducts,
-  getProductById,deleteProduct
-,updateProduct
+  getProductById,
+  updateProduct,
+  deleteProduct,
 } = require("../controllers/product.controller");
-// ✅ Test route
+
+/* ================= TEST ================= */
+
 router.get("/test", (req, res) => {
   res.send("Product API working");
 });
 
-// ✅ Create product
-router.post("/createProduct", createProduct);
+/* ================= REST STYLE ROUTES ================= */
 
-// ✅ Get all products
+// Create product (with image upload)
+router.post("/createProduct", upload.single("image"), createProduct);
+
+// Get all products
 router.get("/getAllProducts", getAllProducts);
-router.get('/getProductById/:id', getProductById);
-router.put('/updateProduct/:id', updateProduct);
-router.delete('/deleteProduct/:id', deleteProduct);
+
+// Get single product
+router.get("/getProductById/:id", getProductById);
+
+// Update product (with image upload)
+router.put("/updateProduct/:id", upload.single("image"), updateProduct);
+
+// Delete product
+router.delete("/deleteProduct/:id", deleteProduct);
 
 module.exports = router;
