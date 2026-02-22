@@ -18,14 +18,16 @@ const Product = require("../models/product.model");
 // };
 exports.createOrder = async (req, res) => {
   try {
-    const { items, address, paymentMethod } = req.body;
+    const { items, address, paymentMethod, customerId, customerName } = req.body;
 
     let orderItems = [];
     let totalAmount = 0;
 
     for (let item of items) {
+
       const product = await Product.findById(item.product);
 
+      // ✅ Check product exists FIRST
       if (!product) {
         return res.status(404).json({
           success: false,
@@ -33,8 +35,15 @@ exports.createOrder = async (req, res) => {
         });
       }
 
-      const subtotal = product.price * item.quantity;
+      // ✅ Check stock
+      if (product.stock < item.quantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient stock for ${product.name}`
+        });
+      }
 
+      const subtotal = product.price * item.quantity;
       totalAmount += subtotal;
 
       orderItems.push({
@@ -46,9 +55,16 @@ exports.createOrder = async (req, res) => {
       });
     }
 
+    // ✅ Reduce stock AFTER all validation passes
+    for (let item of items) {
+      const product = await Product.findById(item.product);
+      product.stock -= item.quantity;
+      await product.save();
+    }
+
     const order = await Order.create({
-      customerId: req.body.customerId,
-      customerName: req.body.customerName,
+      customerId,
+      customerName,
       items: orderItems,
       total: totalAmount,
       address,
@@ -67,7 +83,6 @@ exports.createOrder = async (req, res) => {
     });
   }
 };
-
 
 /**
  * @desc    Get all orders (Admin)

@@ -37,10 +37,11 @@ exports.productSchema = new mongoose.Schema(
       ref: 'Category',
       required: true
     },
-    inStock: {
-      type: Boolean,
-      default: true
-    },
+    stock: {
+  type: Number,
+  required: true,
+  default: 0
+},
     prescriptionRequired: {
       type: Boolean,
       default: false
