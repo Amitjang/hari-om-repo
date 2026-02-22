@@ -58,8 +58,7 @@ exports.createOrder = async (req, res) => {
     // ✅ Reduce stock AFTER all validation passes
     for (let item of items) {
       const product = await Product.findById(item.product);
-      product.stock -= item.quantity;
-      await product.save();
+     
     }
 
     const order = await Order.create({
@@ -147,18 +146,50 @@ exports.getOrdersByCustomer = async (req, res) => {
  */
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status: req.body.status },
-      { new: true }
-    );
+    const { status } = req.body;
 
-    res.status(200).json({
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    // 🔥 If status changing to delivered
+    if (status === "delivered" && order.status !== "delivered") {
+
+      for (let item of order.items) {
+        const product = await Product.findById(item.product);
+
+        if (!product) continue;
+
+        if (product.stock < item.quantity) {
+          return res.status(400).json({
+            success: false,
+            message: `Insufficient stock for ${product.name}`
+          });
+        }
+
+        product.stock -= item.quantity;
+        await product.save();
+      }
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.json({
       success: true,
       data: order
     });
+
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 exports.deleteOrder = async (req, res) => {
