@@ -86,8 +86,8 @@ exports.getAllOrders = async (req, res) => {
     // Fetch orders
     const orders = await Order.find(filter)
       .populate("items.product", "name price image")
-      .sort({ createdAt: -1 }) // 🔥 Recent first
-      .skip(skip)
+      .sort({ createdAt: -1 }) // 🔥 Recent first 
+      .skip(skip)// Pagination
       .limit(limit);
 
     const totalOrders = await Order.countDocuments(filter);
