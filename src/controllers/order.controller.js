@@ -179,3 +179,37 @@ exports.deleteOrder = async (req, res) => {
     });
   }
 };
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const totalOrders = await Order.countDocuments();
+    const totalRevenueData = await Order.aggregate([
+      { $match: { status: { $ne: "cancelled" } } },
+      { $group: { _id: null, total: { $sum: "$total" } } },
+    ]);
+
+    const totalRevenue =
+      totalRevenueData.length > 0 ? totalRevenueData[0].total : 0;
+
+    const recentOrders = await Order.find()
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    const totalProducts = await Product.countDocuments();
+
+    res.json({
+      success: true,
+      data: {
+        totalProducts,
+        totalOrders,
+        totalRevenue,
+        recentOrders,
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
