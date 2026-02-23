@@ -153,28 +153,16 @@ exports.updateOrderStatus = async (req, res) => {
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Order not found"
+        message: "Order not found",
       });
     }
 
-    // 🔥 If status changing to delivered
-    if (status === "delivered" && order.status !== "delivered") {
-
-      for (let item of order.items) {
-        const product = await Product.findById(item.product);
-
-        if (!product) continue;
-
-        if (product.stock < item.quantity) {
-          return res.status(400).json({
-            success: false,
-            message: `Insufficient stock for ${product.name}`
-          });
-        }
-
-        product.stock -= item.quantity;
-        await product.save();
-      }
+    // 🚫 If already delivered, cannot cancel
+    if (order.status === "delivered" && status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Delivered order cannot be cancelled",
+      });
     }
 
     order.status = status;
@@ -182,13 +170,13 @@ exports.updateOrderStatus = async (req, res) => {
 
     res.json({
       success: true,
-      data: order
+      data: order,
     });
 
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
