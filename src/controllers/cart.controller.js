@@ -58,3 +58,51 @@ exports.getCart = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+exports.updateCartItem = async (req, res) => {
+  try {
+    const { quantity } = req.body;
+    const { productId } = req.params;
+
+    if (quantity === undefined) {
+      return res.status(400).json({ message: "Quantity required" });
+    }
+
+    const cart = await Cart.findOne({ user: req.user.id });
+    if (!cart) return res.status(404).json({ message: "Cart not found" });
+
+    const item = cart.items.find(
+      (i) => i.product.toString() === productId
+    );
+
+    if (!item) return res.status(404).json({ message: "Item not found" });
+
+    if (quantity <= 0) {
+      cart.items = cart.items.filter(
+        (i) => i.product.toString() !== productId
+      );
+    } else {
+      item.quantity = quantity;
+    }
+
+    await cart.save();
+    await cart.populate("items.product");
+
+    res.json({ success: true, data: cart });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+exports.clearCart = async (req, res) => {
+  try {
+    await Cart.findOneAndUpdate(
+      { user: req.user.id },
+      { items: [] }
+    );
+
+    res.json({ success: true, message: "Cart cleared" });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
