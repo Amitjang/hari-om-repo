@@ -6,7 +6,10 @@ const Product = require("../models/product.model");
 exports.addToCart = async (req, res) => {
   try {
     const { userId, productId, quantity } = req.body;
-    
+
+    if (!userId || !productId || !quantity || quantity <= 0) {
+      return res.status(400).json({ message: "Invalid data" });
+    }
 
     const product = await Product.findById(productId);
     if (!product) {
@@ -15,7 +18,6 @@ exports.addToCart = async (req, res) => {
 
     let cart = await Cart.findOne({ user: userId });
 
-    // If cart does not exist → create
     if (!cart) {
       cart = await Cart.create({
         user: userId,
@@ -35,6 +37,8 @@ exports.addToCart = async (req, res) => {
       await cart.save();
     }
 
+    await cart.populate("items.product");
+
     res.status(200).json({
       success: true,
       data: cart,
@@ -44,28 +48,41 @@ exports.addToCart = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+/* ================= GET CART ================= */
+
 exports.getCart = async (req, res) => {
   try {
     const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: "UserId required" });
+    }
 
     const cart = await Cart.findOne({ user: userId })
       .populate("items.product");
 
     res.json({ success: true, data: cart });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+/* ================= UPDATE CART ITEM ================= */
+
 exports.updateCartItem = async (req, res) => {
   try {
-    const { quantity } = req.body;
+    const { userId, quantity } = req.body;
     const { productId } = req.params;
 
-    if (quantity === undefined) {
-      return res.status(400).json({ message: "Quantity required" });
+    if (!userId || quantity === undefined) {
+      return res.status(400).json({ message: "Invalid data" });
     }
 
-    const cart = await Cart.findOne({ user: req.user.id });
+    const cart = await Cart.findOne({ user: userId });
     if (!cart) return res.status(404).json({ message: "Cart not found" });
 
     const item = cart.items.find(
@@ -91,10 +108,20 @@ exports.updateCartItem = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+/* ================= CLEAR CART ================= */
+
 exports.clearCart = async (req, res) => {
   try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "UserId required" });
+    }
+
     await Cart.findOneAndUpdate(
-      { user: req.user.id },
+      { user: userId },
       { items: [] }
     );
 
