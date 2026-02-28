@@ -5,8 +5,8 @@ const Product = require("../models/product.model");
 
 exports.addToCart = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
-    const userId = req.user.id; // from JWT middleware
+    const { userId, productId, quantity } = req.body;
+    
 
     const product = await Product.findById(productId);
     if (!product) {
@@ -46,14 +46,12 @@ exports.addToCart = async (req, res) => {
 };
 exports.getCart = async (req, res) => {
   try {
-    const cart = await Cart.findOne({ user: req.user.id })
+    const { userId } = req.query;
+
+    const cart = await Cart.findOne({ user: userId })
       .populate("items.product");
 
-    res.status(200).json({
-      success: true,
-      data: cart,
-    });
-
+    res.json({ success: true, data: cart });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

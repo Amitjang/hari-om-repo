@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-const adminProtect = require("../middlewares/admin.middleware");
-const { protect } = require("../middlewares/auth.middleware");
+// const adminProtect = require("../middlewares/admin.middleware");
+// const { protect } = require("../middlewares/auth.middleware");
 const {
   getCart,
   addToCart,
@@ -13,15 +13,15 @@ const {
 /* ================= CART ROUTES ================= */
 
 // Get current user's cart
-router.get("/getCarts", protect, getCart);
+router.get("/getCarts", getCart);
 
 // Add item to cart
-router.post("/addToCart", protect, addToCart);
+router.post("/addToCart",  addToCart);
 
 // Update cart item quantity
-router.put("/update/:productId", protect, updateCartItem);
+router.put("/update/:productId",  updateCartItem);
 
 // Clear entire cart
-router.delete("/clear", protect, clearCart);
+router.delete("/clear", clearCart);
 
 module.exports = router;
