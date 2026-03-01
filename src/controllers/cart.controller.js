@@ -131,3 +131,38 @@ exports.clearCart = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+/* ================= REMOVE SINGLE ITEM ================= */
+
+exports.removeCartItem = async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const { productId } = req.params;
+
+    if (!userId || !productId) {
+      return res.status(400).json({ message: "Invalid data" });
+    }
+
+    const cart = await Cart.findOne({ user: userId });
+
+    if (!cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
+
+    // Remove product from cart
+    cart.items = cart.items.filter(
+      (item) => item.product.toString() !== productId
+    );
+
+    await cart.save();
+    await cart.populate("items.product");
+
+    res.status(200).json({
+      success: true,
+      message: "Item removed from cart",
+      data: cart,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

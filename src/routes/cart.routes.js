@@ -6,6 +6,7 @@ const {
   addToCart,
   updateCartItem,
   clearCart,
+   removeCartItem,  
 } = require("../controllers/cart.controller");
 
 /* ================= CART ROUTES ================= */
@@ -21,5 +22,6 @@ router.put("/update/:productId", updateCartItem);
 
 // Clear cart by userId
 router.delete("/clear/:userId", clearCart);
-
+// Remove item from cart
+router.delete("/item/:productId", removeCartItem);
 module.exports = router;
