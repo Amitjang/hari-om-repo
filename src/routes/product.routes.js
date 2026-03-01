@@ -5,7 +5,7 @@ const upload = require("../middlewares/upload");
 
 const {
   createProduct,
-  getAllProducts,
+  getProducts,
   getProductById,
   updateProduct,
   deleteProduct,
@@ -23,7 +23,7 @@ router.get("/test", (req, res) => {
 router.post("/createProduct", upload.single("image"), createProduct);
 
 // Get all products
-router.get("/getAllProducts", getAllProducts);
+router.get("/getAllProducts", getProducts);
 
 // Get single product
 router.get("/getProductById/:id", getProductById);
