@@ -1,67 +1,52 @@
 const mongoose = require("mongoose");
-const orderItemSchema = new mongoose.Schema(
-  {
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
-      required: true
-    },
-    name: {
-      type: String,
-      required: true
-    },
-    price: {
-      type: Number,
-      required: true
-    },
-    quantity: {
-      type: Number,
-      required: true
-    },
-    subtotal: {
-      type: Number,
-      required: true
-    }
+
+const orderItemSchema = new mongoose.Schema({
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Product",
+    required: true,
   },
-  { _id: false }
-);
+  name: String,
+  price: Number,
+  quantity: Number,
+});
+
 const orderSchema = new mongoose.Schema(
   {
-    customerId: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Customer',
-      required: false
+      ref: "User",
+      required: true,
     },
-    customerName: {
-      type: String,
-      required: true
+
+    items: [orderItemSchema],
+
+    shippingAddress: {
+      fullName: String,
+      phone: String,
+      email: String,
+      address: String,
+      city: String,
+      state: String,
+      pincode: String,
     },
-    items: {
-      type: [orderItemSchema],
-      required: true
-    },
-    total: {
-      type: Number,
-      required: true
-    },
-    status: {
-      type: String,
-      enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
-      default: 'pending'
-    },
-    address: {
-      type: String,
-      required: true
-    },
+
     paymentMethod: {
       type: String,
-      enum: ['credit_card', 'debit_card', 'upi', 'wallet'],
-      required: true
-    }
+      enum: ["cod", "online"],
+      default: "cod",
+    },
+
+    subtotal: Number,
+    deliveryFee: Number,
+    total: Number,
+
+    orderStatus: {
+      type: String,
+      default: "pending",
+    },
   },
   { timestamps: true }
 );
-
-
 
 module.exports = mongoose.model("Order", orderSchema);

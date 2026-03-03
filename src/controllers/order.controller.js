@@ -18,68 +18,87 @@ const Product = require("../models/product.model");
 // };
 exports.createOrder = async (req, res) => {
   try {
-    const { items, address, paymentMethod, customerId, customerName } = req.body;
+    const { userId, selectedProductIds, shippingAddress, paymentMethod } =
+      req.body;
 
-    let orderItems = [];
-    let totalAmount = 0;
+    if (!userId || !selectedProductIds || selectedProductIds.length === 0) {
+      return res.status(400).json({ message: "Invalid order data" });
+    }
 
-    for (let item of items) {
+    const cart = await Cart.findOne({ user: userId }).populate(
+      "items.product"
+    );
 
-      const product = await Product.findById(item.product);
+    if (!cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
 
-      // ✅ Check product exists FIRST
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: "Product not found"
-        });
-      }
+    // Filter only selected items
+    const selectedItems = cart.items.filter((item) =>
+      selectedProductIds.includes(item.product._id.toString())
+    );
 
-      // ✅ Check stock
+    if (selectedItems.length === 0) {
+      return res.status(400).json({ message: "No items selected" });
+    }
+
+    let subtotal = 0;
+
+    const orderItems = [];
+
+    for (const item of selectedItems) {
+      const product = item.product;
+
+      // 🔥 STOCK VALIDATION
       if (product.stock < item.quantity) {
         return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for ${product.name}`
+          message: `${product.name} has only ${product.stock} items left`,
         });
       }
 
-      const subtotal = product.price * item.quantity;
-      totalAmount += subtotal;
+      subtotal += product.price * item.quantity;
 
       orderItems.push({
         product: product._id,
         name: product.name,
         price: product.price,
         quantity: item.quantity,
-        subtotal: subtotal
       });
+
+      // 🔥 REDUCE STOCK
+      product.stock -= item.quantity;
+      await product.save();
     }
 
-    // ✅ Reduce stock AFTER all validation passes
-    for (let item of items) {
-      const product = await Product.findById(item.product);
-     
-    }
+    const deliveryFee = subtotal >= 499 ? 0 : 49;
+    const total = subtotal + deliveryFee;
 
+    // 🔥 CREATE ORDER
     const order = await Order.create({
-      customerId,
-      customerName,
+      user: userId,
       items: orderItems,
-      total: totalAmount,
-      address,
-      paymentMethod
+      shippingAddress,
+      paymentMethod,
+      subtotal,
+      deliveryFee,
+      total,
     });
+
+    // 🔥 REMOVE PURCHASED ITEMS FROM CART
+    cart.items = cart.items.filter(
+      (item) =>
+        !selectedProductIds.includes(item.product._id.toString())
+    );
+
+    await cart.save();
 
     res.status(201).json({
       success: true,
-      data: order
+      message: "Order created successfully",
+      data: order,
     });
-
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 
