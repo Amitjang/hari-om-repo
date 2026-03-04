@@ -1,5 +1,6 @@
 const  Order = require("../models/order.model");
 const Product = require("../models/product.model");
+import Cart from "../models/cart.model";
 
 /**
  * @desc    Create order
