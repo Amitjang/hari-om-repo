@@ -166,7 +166,7 @@ exports.getOrdersByCustomer = async (req, res) => {
  */
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { orderStatus } = req.body;
 
     const order = await Order.findById(req.params.id);
 
@@ -185,7 +185,7 @@ exports.updateOrderStatus = async (req, res) => {
       });
     }
 
-    order.status = status;
+    order.orderStatus = orderStatus;
     await order.save();
 
     res.json({
@@ -212,7 +212,7 @@ exports.deleteOrder = async (req, res) => {
     }
 
     // ❌ Block deletion if not cancelled
-    if (order.status !== "cancelled") {
+    if (order.orderStatus !== "cancelled") {
       return res.status(400).json({
         success: false,
         message: "Only cancelled orders can be deleted"
@@ -237,7 +237,7 @@ exports.getDashboardStats = async (req, res) => {
   try {
     const totalOrders = await Order.countDocuments();
     const totalRevenueData = await Order.aggregate([
-      { $match: { status: { $ne: "cancelled" } } },
+      { $match: { orderStatus: { $ne: "cancelled" } } },
       { $group: { _id: null, total: { $sum: "$total" } } },
     ]);
 
