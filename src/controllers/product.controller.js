@@ -73,10 +73,16 @@ exports.getProductById = async (req, res) => {
       .populate("category", "name");
 
     if (!product) {
-      return res.status(404).json({ error: "Product not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
     }
 
-    res.json({ success: true, data: product });
+    res.json({
+      success: true,
+      data: product,
+    });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -87,6 +93,7 @@ exports.getProductById = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
   try {
+
     const imagePath = req.file
       ? `/uploads/${req.file.filename}`
       : null;
@@ -95,6 +102,14 @@ exports.createProduct = async (req, res) => {
       ...req.body,
       image: imagePath,
     });
+
+    // 🔥 Increase category product count
+    if (product.category) {
+      await Category.findByIdAndUpdate(
+        product.category,
+        { $inc: { productCount: 1 } }
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -112,17 +127,24 @@ exports.createProduct = async (req, res) => {
 
 exports.updateProduct = async (req, res) => {
   try {
+
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      return res.status(404).json({ error: "Product not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
     }
 
     let imagePath = product.image;
 
+    // Handle image update
     if (req.file) {
+
       if (product.image) {
         const oldImage = path.join(__dirname, "..", product.image);
+
         if (fs.existsSync(oldImage)) {
           fs.unlinkSync(oldImage);
         }
@@ -131,7 +153,24 @@ exports.updateProduct = async (req, res) => {
       imagePath = `/uploads/${req.file.filename}`;
     }
 
-    const updated = await Product.findByIdAndUpdate(
+    const oldCategory = product.category?.toString();
+    const newCategory = req.body.category;
+
+    // 🔥 Adjust category counts if category changed
+    if (newCategory && oldCategory !== newCategory) {
+
+      await Category.findByIdAndUpdate(
+        oldCategory,
+        { $inc: { productCount: -1 } }
+      );
+
+      await Category.findByIdAndUpdate(
+        newCategory,
+        { $inc: { productCount: 1 } }
+      );
+    }
+
+    const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       {
         ...req.body,
@@ -140,26 +179,44 @@ exports.updateProduct = async (req, res) => {
       { new: true }
     );
 
-    res.json({ success: true, data: updated });
+    res.json({
+      success: true,
+      data: updatedProduct,
+    });
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message,
+    });
   }
 };
-
 
 /* ================= DELETE ================= */
 
 exports.deleteProduct = async (req, res) => {
   try {
+
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      return res.status(404).json({ error: "Product not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
     }
 
+    // 🔥 Decrease category product count
+    if (product.category) {
+      await Category.findByIdAndUpdate(
+        product.category,
+        { $inc: { productCount: -1 } }
+      );
+    }
+
+    // Delete image
     if (product.image) {
       const imagePath = path.join(__dirname, "..", product.image);
+
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
       }
@@ -167,9 +224,14 @@ exports.deleteProduct = async (req, res) => {
 
     await Product.findByIdAndDelete(req.params.id);
 
-    res.json({ success: true, message: "Product deleted" });
+    res.json({
+      success: true,
+      message: "Product deleted successfully",
+    });
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message,
+    });
   }
 };

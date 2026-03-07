@@ -1,7 +1,7 @@
 const  Order = require("../models/order.model");
 const Product = require("../models/product.model");
 const Cart = require("../models/cart.model");
-
+const { sendAdminOrderMessage } = require("../services/whatapp.services");
 /**
  * @desc    Create order
  */
@@ -75,15 +75,18 @@ exports.createOrder = async (req, res) => {
     const total = subtotal + deliveryFee;
 
     // 🔥 CREATE ORDER
-    const order = await Order.create({
-      user: userId,
-      items: orderItems,
-      shippingAddress,
-      paymentMethod,
-      subtotal,
-      deliveryFee,
-      total,
-    });
+  const order = await Order.create({
+  user: userId,
+  items: orderItems,
+  shippingAddress,
+  paymentMethod,
+  subtotal,
+  deliveryFee,
+  total,
+});
+
+// 🔥 SEND WHATSAPP MESSAGE TO ADMIN
+await sendAdminOrderMessage(order);
 
     // 🔥 REMOVE PURCHASED ITEMS FROM CART
     cart.items = cart.items.filter(
