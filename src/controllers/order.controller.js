@@ -86,7 +86,7 @@ exports.createOrder = async (req, res) => {
 });
 
 // 🔥 SEND WHATSAPP MESSAGE TO ADMIN
-await sendAdminOrderMessage(order);
+// await sendAdminOrderMessage(order);
 
     // 🔥 REMOVE PURCHASED ITEMS FROM CART
     cart.items = cart.items.filter(
