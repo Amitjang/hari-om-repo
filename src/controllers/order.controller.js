@@ -1,22 +1,10 @@
-const  Order = require("../models/order.model");
+const Order = require("../models/order.model");
 const Product = require("../models/product.model");
 const Cart = require("../models/cart.model");
-// const { sendAdminOrderMessage } = require("../services/whatapp.services");
+
 /**
  * @desc    Create order
  */
-// exports.createOrder = async (req, res) => {
-//   try {
-//     const order = new Order(req.body);
-//     await order.save();
-//     res.status(201).json({
-//       success: true,
-//       data: order
-//     });
-//   } catch (error) {
-//     res.status(400).json({ message: error.message });
-//   }
-// };
 exports.createOrder = async (req, res) => {
   try {
     const { userId, selectedProductIds, shippingAddress, paymentMethod } =
@@ -26,81 +14,93 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: "Invalid order data" });
     }
 
-    const cart = await Cart.findOne({ user: userId }).populate(
-      "items.product"
-    );
+    const cart = await Cart.findOne({ user: userId }).populate("items.product");
 
-    if (!cart) {
-      return res.status(404).json({ message: "Cart not found" });
+    let selectedItems = [];
+
+    if (cart) {
+      selectedItems = cart.items.filter((item) =>
+        selectedProductIds.includes(item.product._id.toString())
+      );
     }
 
-    // Filter only selected items
-    const selectedItems = cart.items.filter((item) =>
-      selectedProductIds.includes(item.product._id.toString())
-    );
+    /* Instant Buy support */
+    if (selectedItems.length === 0) {
+      const products = await Product.find({
+        _id: { $in: selectedProductIds },
+      });
+
+      selectedItems = products.map((product) => ({
+        product,
+        quantity: 1,
+      }));
+    }
 
     if (selectedItems.length === 0) {
       return res.status(400).json({ message: "No items selected" });
     }
 
     let subtotal = 0;
-
     const orderItems = [];
 
     for (const item of selectedItems) {
       const product = item.product;
 
-      // 🔥 STOCK VALIDATION
-      if (product.stock < item.quantity) {
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      const quantity = item.quantity || 1;
+
+      if (product.stock < quantity) {
         return res.status(400).json({
           message: `${product.name} has only ${product.stock} items left`,
         });
       }
 
-      subtotal += product.price * item.quantity;
+      subtotal += product.price * quantity;
 
       orderItems.push({
         product: product._id,
         name: product.name,
         price: product.price,
-        quantity: item.quantity,
+        quantity,
       });
 
-      // 🔥 REDUCE STOCK
-      product.stock -= item.quantity;
+      product.stock -= quantity;
       await product.save();
     }
 
     const deliveryFee = subtotal >= 499 ? 0 : 49;
     const total = subtotal + deliveryFee;
 
-    // 🔥 CREATE ORDER
-  const order = await Order.create({
-  user: userId,
-  items: orderItems,
-  shippingAddress,
-  paymentMethod,
-  subtotal,
-  deliveryFee,
-  total,
-});
+    const order = await Order.create({
+      user: userId,
+      items: orderItems,
+      shippingAddress,
+      paymentMethod,
+      subtotal,
+      deliveryFee,
+      total,
+    });
 
-// 🔥 SEND WHATSAPP MESSAGE TO ADMIN
-// await sendAdminOrderMessage(order);
+    /* Remove purchased items from cart */
 
-    // 🔥 REMOVE PURCHASED ITEMS FROM CART
-    cart.items = cart.items.filter(
-      (item) =>
-        !selectedProductIds.includes(item.product._id.toString())
-    );
+    if (cart) {
+      cart.items = cart.items.filter(
+        (item) =>
+          !selectedProductIds.includes(item.product._id.toString())
+      );
 
-    await cart.save();
+      await cart.save();
+    }
 
     res.status(201).json({
       success: true,
       message: "Order created successfully",
       data: order,
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -111,23 +111,18 @@ exports.createOrder = async (req, res) => {
  */
 exports.getAllOrders = async (req, res) => {
   try {
-    // Query params
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
 
     const skip = (page - 1) * limit;
 
-    // Filter (optional future use)
-    const filter = {};
-
-    // Fetch orders
-    const orders = await Order.find(filter)
+    const orders = await Order.find()
       .populate("items.product", "name price image")
-      .sort({ createdAt: -1 }) // 🔥 Recent first 
-      .skip(skip)// Pagination
+      .sort({ createdAt: -1 })
+      .skip(skip)
       .limit(limit);
 
-    const totalOrders = await Order.countDocuments(filter);
+    const totalOrders = await Order.countDocuments();
 
     res.status(200).json({
       success: true,
@@ -136,7 +131,6 @@ exports.getAllOrders = async (req, res) => {
       totalPages: Math.ceil(totalOrders / limit),
       data: orders,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -145,19 +139,18 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
-
 /**
  * @desc    Get orders by customer
  */
 exports.getOrdersByCustomer = async (req, res) => {
   try {
     const orders = await Order.find({
-      customerId: req.params.customerId
-    }).populate('items.product');
+      user: req.params.userId,
+    }).populate("items.product");
 
     res.status(200).json({
       success: true,
-      data: orders
+      data: orders,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -180,8 +173,10 @@ exports.updateOrderStatus = async (req, res) => {
       });
     }
 
-    // 🚫 If already delivered, cannot cancel
-    if (order.status === "delivered" && status === "cancelled") {
+    if (
+      order.orderStatus === "delivered" &&
+      orderStatus === "cancelled"
+    ) {
       return res.status(400).json({
         success: false,
         message: "Delivered order cannot be cancelled",
@@ -189,13 +184,13 @@ exports.updateOrderStatus = async (req, res) => {
     }
 
     order.orderStatus = orderStatus;
+
     await order.save();
 
     res.json({
       success: true,
       data: order,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -203,6 +198,10 @@ exports.updateOrderStatus = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Delete order
+ */
 exports.deleteOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
@@ -210,15 +209,14 @@ exports.deleteOrder = async (req, res) => {
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Order not found"
+        message: "Order not found",
       });
     }
 
-    // ❌ Block deletion if not cancelled
     if (order.orderStatus !== "cancelled") {
       return res.status(400).json({
         success: false,
-        message: "Only cancelled orders can be deleted"
+        message: "Only cancelled orders can be deleted",
       });
     }
 
@@ -226,19 +224,23 @@ exports.deleteOrder = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Order deleted successfully"
+      message: "Order deleted successfully",
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
+
+/**
+ * @desc Dashboard stats
+ */
 exports.getDashboardStats = async (req, res) => {
   try {
     const totalOrders = await Order.countDocuments();
+
     const totalRevenueData = await Order.aggregate([
       { $match: { orderStatus: { $ne: "cancelled" } } },
       { $group: { _id: null, total: { $sum: "$total" } } },
@@ -262,7 +264,6 @@ exports.getDashboardStats = async (req, res) => {
         recentOrders,
       },
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,

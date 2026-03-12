@@ -6,9 +6,22 @@ const orderItemSchema = new mongoose.Schema({
     ref: "Product",
     required: true,
   },
-  name: String,
-  price: Number,
-  quantity: Number,
+
+  name: {
+    type: String,
+    required: true,
+  },
+
+  price: {
+    type: Number,
+    required: true,
+  },
+
+  quantity: {
+    type: Number,
+    required: true,
+    default: 1,
+  },
 });
 
 const orderSchema = new mongoose.Schema(
@@ -19,7 +32,10 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
-    items: [orderItemSchema],
+    items: {
+      type: [orderItemSchema],
+      required: true,
+    },
 
     shippingAddress: {
       fullName: String,
@@ -37,12 +53,24 @@ const orderSchema = new mongoose.Schema(
       default: "cod",
     },
 
-    subtotal: Number,
-    deliveryFee: Number,
-    total: Number,
+    subtotal: {
+      type: Number,
+      required: true,
+    },
+
+    deliveryFee: {
+      type: Number,
+      default: 0,
+    },
+
+    total: {
+      type: Number,
+      required: true,
+    },
 
     orderStatus: {
       type: String,
+      enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
       default: "pending",
     },
   },
