@@ -33,7 +33,7 @@ app.use(
 );
 
 // Preflight request fix (VERY IMPORTANT)
-app.options("*", cors());
+app.options(/.*/, cors());
 
 /* ================= MIDDLEWARE ================= */
 
