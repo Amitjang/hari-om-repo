@@ -14,6 +14,7 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "https://hari-om-pharma-admin-panel.vercel.app",
+  "https://hari-om-pharma-web.vercel.app"
 ];
 
 app.use(
