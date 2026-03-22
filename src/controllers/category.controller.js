@@ -21,10 +21,15 @@ exports.getCategoryById = async (req, res) => {
     const category = await Category.findById(req.params.id);
 
     if (!category) {
-      return res.status(404).json({ error: "Category not found" });
+      return res.status(404).json({
+        error: "Category not found",
+      });
     }
 
-    res.json({ success: true, data: category });
+    res.json({
+      success: true,
+      data: category,
+    });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -35,12 +40,16 @@ exports.getCategoryById = async (req, res) => {
 
 exports.createCategory = async (req, res) => {
   try {
-    const imagePath = req.file
-      ? `/uploads/${req.file.filename}`
-      : null;
+    if (!req.file) {
+      return res.status(400).json({
+        error: "Image is required",
+      });
+    }
+
+    const imagePath = `/uploads/${req.file.filename}`;
 
     const category = await Category.create({
-      ...req.body,
+      name: req.body.name,
       image: imagePath,
     });
 
@@ -50,6 +59,7 @@ exports.createCategory = async (req, res) => {
     });
 
   } catch (error) {
+    console.log("CREATE CATEGORY ERROR:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -61,7 +71,9 @@ exports.updateCategory = async (req, res) => {
     const category = await Category.findById(req.params.id);
 
     if (!category) {
-      return res.status(404).json({ error: "Category not found" });
+      return res.status(404).json({
+        error: "Category not found",
+      });
     }
 
     let imagePath = category.image;
@@ -69,6 +81,7 @@ exports.updateCategory = async (req, res) => {
     if (req.file) {
       if (category.image) {
         const oldImage = path.join(__dirname, "..", category.image);
+
         if (fs.existsSync(oldImage)) {
           fs.unlinkSync(oldImage);
         }
@@ -80,32 +93,35 @@ exports.updateCategory = async (req, res) => {
     const updated = await Category.findByIdAndUpdate(
       req.params.id,
       {
-        ...req.body,
+        name: req.body.name,
         image: imagePath,
       },
       { new: true }
     );
 
-    res.json({ success: true, data: updated });
+    res.json({
+      success: true,
+      data: updated,
+    });
 
   } catch (error) {
+    console.log("UPDATE CATEGORY ERROR:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
 /* ================= DELETE ================= */
 
-
-
 exports.deleteCategory = async (req, res) => {
   try {
     const category = await Category.findById(req.params.id);
 
     if (!category) {
-      return res.status(404).json({ error: "Category not found" });
+      return res.status(404).json({
+        error: "Category not found",
+      });
     }
 
-    // 🔥 CHECK IF PRODUCTS EXIST
     const productsCount = await Product.countDocuments({
       category: req.params.id,
     });

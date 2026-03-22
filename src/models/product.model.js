@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 exports.productSchema = new mongoose.Schema(
   {
@@ -7,56 +7,77 @@ exports.productSchema = new mongoose.Schema(
       required: true,
       trim: true,
       minlength: 3,
-      maxlength: 100
+      maxlength: 100,
     },
+
     description: {
       type: String,
       required: true,
-      minlength: 10
+      minlength: 10,
     },
+
+    originalPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    discount: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+
     price: {
       type: Number,
       required: true,
-      min: 0
-    },
-    originalPrice: {
-      type: Number,
-      min: 0
-    },
-    discount: {
-      type: Number,
       min: 0,
-      max: 100
     },
+
     image: {
       type: String,
-      required: true
+      required: true,
     },
+
     category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category',
-      required: true
+      ref: "Category",
+      required: true,
     },
+
     stock: {
-  type: Number,
-  required: true,
-  default: 0
-},
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
     prescriptionRequired: {
       type: Boolean,
-      default: false
+      default: false,
     },
-    usage: {
-      type: String
-    },
-    safetyInfo: {
-      type: String
-    }
+
+    usage: String,
+    safetyInfo: String,
   },
   { timestamps: true }
 );
 
-// productSchema.index({ name: 'text', description: 'text' });
 
-// export default mongoose.model('Product', productSchema);
-module.exports = mongoose.model('Product', exports.productSchema);
+// 🔥 AUTO CALCULATE PRICE
+exports.productSchema.pre("save", function (next) {
+
+  if (this.originalPrice && this.discount >= 0) {
+
+    const discountAmount =
+      (this.originalPrice * this.discount) / 100;
+
+    this.price = Math.round(
+      this.originalPrice - discountAmount
+    );
+  }
+
+  next();
+});
+
+module.exports = mongoose.model("Product", exports.productSchema);

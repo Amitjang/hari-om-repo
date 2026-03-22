@@ -19,12 +19,12 @@ exports.getProducts = async (req, res) => {
 
     const query = {};
 
-    // Search filter
+    // Search
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }
 
-    // Category filter
+    // Category
     if (category) {
       query.category = category;
     }
@@ -94,16 +94,34 @@ exports.getProductById = async (req, res) => {
 exports.createProduct = async (req, res) => {
   try {
 
-    const imagePath = req.file
-      ? `/uploads/${req.file.filename}`
-      : null;
+    if (!req.file) {
+      return res.status(400).json({
+        error: "Image is required",
+      });
+    }
+
+    const imagePath = `/uploads/${req.file.filename}`;
+
+    const {
+      originalPrice,
+      discount = 0,
+    } = req.body;
+
+    // 🔥 Calculate final price
+    let finalPrice = originalPrice;
+
+    if (originalPrice && discount >= 0) {
+      const discountAmount = (originalPrice * discount) / 100;
+      finalPrice = Math.round(originalPrice - discountAmount);
+    }
 
     const product = await Product.create({
       ...req.body,
+      price: finalPrice,
       image: imagePath,
     });
 
-    // 🔥 Increase category product count
+    // Increase category count
     if (product.category) {
       await Category.findByIdAndUpdate(
         product.category,
@@ -117,6 +135,7 @@ exports.createProduct = async (req, res) => {
     });
 
   } catch (error) {
+    console.log("CREATE ERROR:", error);
     res.status(500).json({
       error: error.message,
     });
@@ -139,7 +158,7 @@ exports.updateProduct = async (req, res) => {
 
     let imagePath = product.image;
 
-    // Handle image update
+    // Image update
     if (req.file) {
 
       if (product.image) {
@@ -153,10 +172,20 @@ exports.updateProduct = async (req, res) => {
       imagePath = `/uploads/${req.file.filename}`;
     }
 
+    // 🔥 Discount calculation
+    if (req.body.originalPrice && req.body.discount !== undefined) {
+      const discountAmount =
+        (req.body.originalPrice * req.body.discount) / 100;
+
+      req.body.price = Math.round(
+        req.body.originalPrice - discountAmount
+      );
+    }
+
     const oldCategory = product.category?.toString();
     const newCategory = req.body.category;
 
-    // 🔥 Adjust category counts if category changed
+    // Category count update
     if (newCategory && oldCategory !== newCategory) {
 
       await Category.findByIdAndUpdate(
@@ -185,6 +214,7 @@ exports.updateProduct = async (req, res) => {
     });
 
   } catch (error) {
+    console.log("UPDATE ERROR:", error);
     res.status(500).json({
       error: error.message,
     });
@@ -205,7 +235,7 @@ exports.deleteProduct = async (req, res) => {
       });
     }
 
-    // 🔥 Decrease category product count
+    // Decrease category count
     if (product.category) {
       await Category.findByIdAndUpdate(
         product.category,
@@ -230,6 +260,7 @@ exports.deleteProduct = async (req, res) => {
     });
 
   } catch (error) {
+    console.log("DELETE ERROR:", error);
     res.status(500).json({
       error: error.message,
     });
