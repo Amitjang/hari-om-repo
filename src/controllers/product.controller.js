@@ -93,21 +93,20 @@ exports.getProductById = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
   try {
+    console.log("BODY:", req.body);
+    console.log("FILE:", req.file);
 
     if (!req.file) {
       return res.status(400).json({
-        error: "Image is required",
+        error: "Image required",
       });
     }
 
     const imagePath = `/uploads/${req.file.filename}`;
 
-    const {
-      originalPrice,
-      discount = 0,
-    } = req.body;
+    const originalPrice = Number(req.body.originalPrice);
+    const discount = Number(req.body.discount || 0);
 
-    // 🔥 Calculate final price
     let finalPrice = originalPrice;
 
     if (originalPrice && discount >= 0) {
@@ -121,14 +120,6 @@ exports.createProduct = async (req, res) => {
       image: imagePath,
     });
 
-    // Increase category count
-    if (product.category) {
-      await Category.findByIdAndUpdate(
-        product.category,
-        { $inc: { productCount: 1 } }
-      );
-    }
-
     res.status(201).json({
       success: true,
       data: product,
@@ -136,9 +127,7 @@ exports.createProduct = async (req, res) => {
 
   } catch (error) {
     console.log("CREATE ERROR:", error);
-    res.status(500).json({
-      error: error.message,
-    });
+    res.status(500).json({ error: error.message });
   }
 };
 
