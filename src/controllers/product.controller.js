@@ -3,91 +3,79 @@ const Category = require("../models/category.model");
 const fs = require("fs");
 const path = require("path");
 
+// ✅ IMPORTS (MISSING THA)
+const asyncHandler = require("../middlewares/asyncHandler");
+const ApiError = require("../utils/ApiError");
+const ApiResponse = require("../utils/ApiResponse");
+
 /* ================= GET ALL ================= */
 
-exports.getProducts = async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 8,
-      category,
-      search,
-      minPrice,
-      maxPrice,
-      sort,
-    } = req.query;
+exports.getProducts = asyncHandler(async (req, res) => {
 
-    const query = {};
+  const {
+    page = 1,
+    limit = 8,
+    category,
+    search,
+    minPrice,
+    maxPrice,
+    sort,
+  } = req.query;
 
-    // Search
-    if (search) {
-      query.name = { $regex: search, $options: "i" };
-    }
+  const query = {};
 
-    // Category
-    if (category) {
-      query.category = category;
-    }
+  if (search) {
+    query.name = { $regex: search, $options: "i" };
+  }
 
-    // Price filter
-    if (minPrice || maxPrice) {
-      query.price = {};
-      if (minPrice) query.price.$gte = Number(minPrice);
-      if (maxPrice) query.price.$lte = Number(maxPrice);
-    }
+  if (category) {
+    query.category = category;
+  }
 
-    // Sorting
-    let sortOption = {};
-    if (sort === "low") sortOption.price = 1;
-    if (sort === "high") sortOption.price = -1;
-    if (sort === "new") sortOption.createdAt = -1;
+  if (minPrice || maxPrice) {
+    query.price = {};
+    if (minPrice) query.price.$gte = Number(minPrice);
+    if (maxPrice) query.price.$lte = Number(maxPrice);
+  }
 
-    const skip = (page - 1) * limit;
+  let sortOption = {};
+  if (sort === "low") sortOption.price = 1;
+  if (sort === "high") sortOption.price = -1;
+  if (sort === "new") sortOption.createdAt = -1;
 
-    const products = await Product.find(query)
-      .populate("category")
-      .sort(sortOption)
-      .skip(skip)
-      .limit(Number(limit));
+  const skip = (page - 1) * limit;
 
-    const total = await Product.countDocuments(query);
+  const products = await Product.find(query)
+    .populate("category")
+    .sort(sortOption)
+    .skip(skip)
+    .limit(Number(limit));
 
-    res.json({
-      success: true,
-      data: products,
+  const total = await Product.countDocuments(query);
+
+  res.json(
+    new ApiResponse(200, {
+      products,
       total,
       page: Number(page),
       totalPages: Math.ceil(total / limit),
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+    })
+  );
+});
 
 /* ================= GET BY ID ================= */
 
-exports.getProductById = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id)
-      .populate("category", "name");
+exports.getProductById = asyncHandler(async (req, res) => {
 
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
+  const product = await Product.findById(req.params.id)
+    .populate("category", "name");
 
-    res.json({
-      success: true,
-      data: product,
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  if (!product) {
+    throw new ApiError(404, "Product not found");
   }
-};
+
+  res.json(new ApiResponse(200, product));
+});
 
 /* ================= CREATE ================= */
 
@@ -98,6 +86,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
   }
 
   const category = await Category.findById(req.body.category);
+
   if (!category) {
     throw new ApiError(400, "Invalid category");
   }
@@ -109,11 +98,17 @@ exports.createProduct = asyncHandler(async (req, res) => {
     originalPrice - (originalPrice * discount) / 100;
 
   const product = await Product.create({
-    ...req.body,
+    name: req.body.name,
+    description: req.body.description,
+    originalPrice,
+    discount,
     price: Math.round(finalPrice),
+    stock: Number(req.body.stock),
+    category: category._id,
     image: `/uploads/${req.file.filename}`,
   });
 
+  // 🔥 update category count
   await Category.findByIdAndUpdate(category._id, {
     $inc: { productCount: 1 },
   });
@@ -122,127 +117,79 @@ exports.createProduct = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, product, "Product created"));
 });
+
 /* ================= UPDATE ================= */
 
-exports.updateProduct = async (req, res) => {
-  try {
+exports.updateProduct = asyncHandler(async (req, res) => {
 
-    const product = await Product.findById(req.params.id);
+  const product = await Product.findById(req.params.id);
 
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-
-    let imagePath = product.image;
-
-    // Image update
-    if (req.file) {
-
-      if (product.image) {
-        const oldImage = path.join(__dirname, "..", product.image);
-
-        if (fs.existsSync(oldImage)) {
-          fs.unlinkSync(oldImage);
-        }
-      }
-
-      imagePath = `/uploads/${req.file.filename}`;
-    }
-
-    // 🔥 Discount calculation
-    if (req.body.originalPrice && req.body.discount !== undefined) {
-      const discountAmount =
-        (req.body.originalPrice * req.body.discount) / 100;
-
-      req.body.price = Math.round(
-        req.body.originalPrice - discountAmount
-      );
-    }
-
-    const oldCategory = product.category?.toString();
-    const newCategory = req.body.category;
-
-    // Category count update
-    if (newCategory && oldCategory !== newCategory) {
-
-      await Category.findByIdAndUpdate(
-        oldCategory,
-        { $inc: { productCount: -1 } }
-      );
-
-      await Category.findByIdAndUpdate(
-        newCategory,
-        { $inc: { productCount: 1 } }
-      );
-    }
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...req.body,
-        image: imagePath,
-      },
-      { new: true }
-    );
-
-    res.json({
-      success: true,
-      data: updatedProduct,
-    });
-
-  } catch (error) {
-    console.log("UPDATE ERROR:", error);
-    res.status(500).json({
-      error: error.message,
-    });
+  if (!product) {
+    throw new ApiError(404, "Product not found");
   }
-};
+
+  let imagePath = product.image;
+
+  if (req.file) {
+
+    if (product.image) {
+      const oldImage = path.join(__dirname, "..", product.image);
+
+      if (fs.existsSync(oldImage)) {
+        fs.unlinkSync(oldImage);
+      }
+    }
+
+    imagePath = `/uploads/${req.file.filename}`;
+  }
+
+  if (req.body.originalPrice && req.body.discount !== undefined) {
+    const discountAmount =
+      (req.body.originalPrice * req.body.discount) / 100;
+
+    req.body.price = Math.round(
+      req.body.originalPrice - discountAmount
+    );
+  }
+
+  const updatedProduct = await Product.findByIdAndUpdate(
+    req.params.id,
+    {
+      ...req.body,
+      image: imagePath,
+    },
+    { new: true }
+  );
+
+  res.json(new ApiResponse(200, updatedProduct, "Product updated"));
+});
 
 /* ================= DELETE ================= */
 
-exports.deleteProduct = async (req, res) => {
-  try {
+exports.deleteProduct = asyncHandler(async (req, res) => {
 
-    const product = await Product.findById(req.params.id);
+  const product = await Product.findById(req.params.id);
 
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-
-    // Decrease category count
-    if (product.category) {
-      await Category.findByIdAndUpdate(
-        product.category,
-        { $inc: { productCount: -1 } }
-      );
-    }
-
-    // Delete image
-    if (product.image) {
-      const imagePath = path.join(__dirname, "..", product.image);
-
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
-    }
-
-    await Product.findByIdAndDelete(req.params.id);
-
-    res.json({
-      success: true,
-      message: "Product deleted successfully",
-    });
-
-  } catch (error) {
-    console.log("DELETE ERROR:", error);
-    res.status(500).json({
-      error: error.message,
-    });
+  if (!product) {
+    throw new ApiError(404, "Product not found");
   }
-};
+
+  if (product.category) {
+    await Category.findByIdAndUpdate(
+      product.category,
+      { $inc: { productCount: -1 } }
+    );
+  }
+
+  if (product.image) {
+    const imagePath = path.join(__dirname, "..", product.image);
+
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
+    }
+  }
+
+  await Product.findByIdAndDelete(req.params.id);
+
+  res.json(new ApiResponse(200, null, "Product deleted"));
+});
