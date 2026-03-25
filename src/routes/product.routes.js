@@ -13,18 +13,16 @@ const {
 
 // 🔥 SAFE MULTER WRAPPER
 const uploadSingle = (req, res, next) => {
-  upload.single("image")(req, res, function (err) {
+  upload.single("image")(req, res, (err) => {
     if (err) {
-      console.log("MULTER ERROR:", err);
       return res.status(400).json({
-        error: err.message || "Image upload failed",
+        message: err.message,
       });
     }
     next();
   });
 };
 
-// ✅ CREATE
 router.post("/createProduct", uploadSingle, createProduct);
 
 // ✅ UPDATE

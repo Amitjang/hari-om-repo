@@ -91,46 +91,37 @@ exports.getProductById = async (req, res) => {
 
 /* ================= CREATE ================= */
 
-exports.createProduct = async (req, res) => {
-  try {
-    console.log("BODY:", req.body);
-    console.log("FILE:", req.file);
+exports.createProduct = asyncHandler(async (req, res) => {
 
-    if (!req.file) {
-      return res.status(400).json({
-        error: "Image required",
-      });
-    }
-
-    const imagePath = `/uploads/${req.file.filename}`;
-
-    const originalPrice = Number(req.body.originalPrice);
-    const discount = Number(req.body.discount || 0);
-
-    let finalPrice = originalPrice;
-
-    if (originalPrice && discount >= 0) {
-      const discountAmount = (originalPrice * discount) / 100;
-      finalPrice = Math.round(originalPrice - discountAmount);
-    }
-
-    const product = await Product.create({
-      ...req.body,
-      price: finalPrice,
-      image: imagePath,
-    });
-
-    res.status(201).json({
-      success: true,
-      data: product,
-    });
-
-  } catch (error) {
-    console.log("CREATE ERROR:", error);
-    res.status(500).json({ error: error.message });
+  if (!req.file) {
+    throw new ApiError(400, "Image required");
   }
-};
 
+  const category = await Category.findById(req.body.category);
+  if (!category) {
+    throw new ApiError(400, "Invalid category");
+  }
+
+  const originalPrice = Number(req.body.originalPrice);
+  const discount = Number(req.body.discount || 0);
+
+  const finalPrice =
+    originalPrice - (originalPrice * discount) / 100;
+
+  const product = await Product.create({
+    ...req.body,
+    price: Math.round(finalPrice),
+    image: `/uploads/${req.file.filename}`,
+  });
+
+  await Category.findByIdAndUpdate(category._id, {
+    $inc: { productCount: 1 },
+  });
+
+  res
+    .status(201)
+    .json(new ApiResponse(201, product, "Product created"));
+});
 /* ================= UPDATE ================= */
 
 exports.updateProduct = async (req, res) => {

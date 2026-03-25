@@ -6,6 +6,7 @@ const orderRoutes = require("./routes/order.routes");
 const categoryRoutes = require("./routes/category.routes");
 const authRoutes = require("./routes/auth.routes");
 const cartRoutes = require("./routes/cart.routes");
+const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
 
@@ -48,7 +49,12 @@ app.get("/", (req, res) => {
 
 /* ================= ROUTES ================= */
 
+app.use("/uploads", express.static("uploads"));
+
 app.use("/products", productRoutes);
+
+// 🔥 global error handler
+app.use(errorHandler);
 app.use("/orders", orderRoutes);
 app.use("/categories", categoryRoutes);
 app.use("/auth", authRoutes);
