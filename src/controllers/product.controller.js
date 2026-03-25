@@ -3,7 +3,6 @@ const Category = require("../models/category.model");
 const fs = require("fs");
 const path = require("path");
 
-// ✅ IMPORTS (MISSING THA)
 const asyncHandler = require("../middlewares/asyncHandler");
 const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
@@ -11,64 +10,14 @@ const ApiResponse = require("../utils/ApiResponse");
 /* ================= GET ALL ================= */
 
 exports.getProducts = asyncHandler(async (req, res) => {
-
-  const {
-    page = 1,
-    limit = 8,
-    category,
-    search,
-    minPrice,
-    maxPrice,
-    sort,
-  } = req.query;
-
-  const query = {};
-
-  if (search) {
-    query.name = { $regex: search, $options: "i" };
-  }
-
-  if (category) {
-    query.category = category;
-  }
-
-  if (minPrice || maxPrice) {
-    query.price = {};
-    if (minPrice) query.price.$gte = Number(minPrice);
-    if (maxPrice) query.price.$lte = Number(maxPrice);
-  }
-
-  let sortOption = {};
-  if (sort === "low") sortOption.price = 1;
-  if (sort === "high") sortOption.price = -1;
-  if (sort === "new") sortOption.createdAt = -1;
-
-  const skip = (page - 1) * limit;
-
-  const products = await Product.find(query)
-    .populate("category")
-    .sort(sortOption)
-    .skip(skip)
-    .limit(Number(limit));
-
-  const total = await Product.countDocuments(query);
-
-  res.json(
-    new ApiResponse(200, {
-      products,
-      total,
-      page: Number(page),
-      totalPages: Math.ceil(total / limit),
-    })
-  );
+  const products = await Product.find().populate("category");
+  res.json(new ApiResponse(200, { products }));
 });
 
 /* ================= GET BY ID ================= */
 
 exports.getProductById = asyncHandler(async (req, res) => {
-
-  const product = await Product.findById(req.params.id)
-    .populate("category", "name");
+  const product = await Product.findById(req.params.id).populate("category");
 
   if (!product) {
     throw new ApiError(404, "Product not found");
@@ -81,41 +30,58 @@ exports.getProductById = asyncHandler(async (req, res) => {
 
 exports.createProduct = asyncHandler(async (req, res) => {
 
+  const { name, description, originalPrice, discount, stock, category } = req.body;
+
+  if (!name || name.length < 3) {
+    throw new ApiError(400, "Name must be at least 3 characters");
+  }
+
+  if (!description || description.length < 10) {
+    throw new ApiError(400, "Description must be at least 10 characters");
+  }
+
+  if (!originalPrice || originalPrice <= 0) {
+    throw new ApiError(400, "Valid price required");
+  }
+
+  if (!category) {
+    throw new ApiError(400, "Category required");
+  }
+
   if (!req.file) {
     throw new ApiError(400, "Image required");
   }
 
-  const category = await Category.findById(req.body.category);
+  const categoryExist = await Category.findById(category);
 
-  if (!category) {
+  if (!categoryExist) {
     throw new ApiError(400, "Invalid category");
   }
 
-  const originalPrice = Number(req.body.originalPrice);
-  const discount = Number(req.body.discount || 0);
+  const priceNum = Number(originalPrice);
+  const discountNum = Number(discount || 0);
 
   const finalPrice =
-    originalPrice - (originalPrice * discount) / 100;
+    priceNum - (priceNum * discountNum) / 100;
 
   const product = await Product.create({
-    name: req.body.name,
-    description: req.body.description,
-    originalPrice,
-    discount,
+    name,
+    description,
+    originalPrice: priceNum,
+    discount: discountNum,
     price: Math.round(finalPrice),
-    stock: Number(req.body.stock),
-    category: category._id,
+    stock: Number(stock || 0),
+    category,
     image: `/uploads/${req.file.filename}`,
   });
 
-  // 🔥 update category count
-  await Category.findByIdAndUpdate(category._id, {
+  await Category.findByIdAndUpdate(category, {
     $inc: { productCount: 1 },
   });
 
-  res
-    .status(201)
-    .json(new ApiResponse(201, product, "Product created"));
+  res.status(201).json(
+    new ApiResponse(201, product, "Product created successfully")
+  );
 });
 
 /* ================= UPDATE ================= */
@@ -131,37 +97,22 @@ exports.updateProduct = asyncHandler(async (req, res) => {
   let imagePath = product.image;
 
   if (req.file) {
+    const oldImage = path.join(__dirname, "..", product.image);
 
-    if (product.image) {
-      const oldImage = path.join(__dirname, "..", product.image);
-
-      if (fs.existsSync(oldImage)) {
-        fs.unlinkSync(oldImage);
-      }
+    if (fs.existsSync(oldImage)) {
+      fs.unlinkSync(oldImage);
     }
 
     imagePath = `/uploads/${req.file.filename}`;
   }
 
-  if (req.body.originalPrice && req.body.discount !== undefined) {
-    const discountAmount =
-      (req.body.originalPrice * req.body.discount) / 100;
-
-    req.body.price = Math.round(
-      req.body.originalPrice - discountAmount
-    );
-  }
-
-  const updatedProduct = await Product.findByIdAndUpdate(
+  const updated = await Product.findByIdAndUpdate(
     req.params.id,
-    {
-      ...req.body,
-      image: imagePath,
-    },
+    { ...req.body, image: imagePath },
     { new: true }
   );
 
-  res.json(new ApiResponse(200, updatedProduct, "Product updated"));
+  res.json(new ApiResponse(200, updated, "Updated"));
 });
 
 /* ================= DELETE ================= */
@@ -174,22 +125,15 @@ exports.deleteProduct = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Product not found");
   }
 
-  if (product.category) {
-    await Category.findByIdAndUpdate(
-      product.category,
-      { $inc: { productCount: -1 } }
-    );
-  }
-
   if (product.image) {
-    const imagePath = path.join(__dirname, "..", product.image);
+    const img = path.join(__dirname, "..", product.image);
 
-    if (fs.existsSync(imagePath)) {
-      fs.unlinkSync(imagePath);
+    if (fs.existsSync(img)) {
+      fs.unlinkSync(img);
     }
   }
 
   await Product.findByIdAndDelete(req.params.id);
 
-  res.json(new ApiResponse(200, null, "Product deleted"));
+  res.json(new ApiResponse(200, null, "Deleted"));
 });
