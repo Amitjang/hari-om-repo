@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-exports.productSchema = new mongoose.Schema(
+const productSchema = new mongoose.Schema(
   {
     name: {
       type: String,
@@ -63,21 +63,4 @@ exports.productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-
-// 🔥 AUTO CALCULATE PRICE
-exports.productSchema.pre("save", function (next) {
-
-  if (this.originalPrice && this.discount >= 0) {
-
-    const discountAmount =
-      (this.originalPrice * this.discount) / 100;
-
-    this.price = Math.round(
-      this.originalPrice - discountAmount
-    );
-  }
-
-  next();
-});
-
-module.exports = mongoose.model("Product", exports.productSchema);
+module.exports = mongoose.model("Product", productSchema);

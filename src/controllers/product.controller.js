@@ -81,6 +81,16 @@ exports.updateProduct = async (req, res) => {
       imagePath = `/uploads/${req.file.filename}`;
     }
 
+    // 🔥 FIX: RECALCULATE PRICE
+    if (req.body.originalPrice) {
+      const priceNum = Number(req.body.originalPrice);
+      const discountNum = Number(req.body.discount || 0);
+
+      req.body.price = Math.round(
+        priceNum - (priceNum * discountNum) / 100
+      );
+    }
+
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
       { ...req.body, image: imagePath },
