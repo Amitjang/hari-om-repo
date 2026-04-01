@@ -55,9 +55,51 @@ exports.createProduct = async (req, res) => {
 
 exports.getProducts = async (req, res) => {
   try {
-    const products = await Product.find().populate("category");
-    res.json({ products });
+    const {
+      page = 1,
+      limit = 8,
+      category,
+      search,
+      sort,
+    } = req.query;
+
+    const query = {};
+
+    /* 🔥 CATEGORY FILTER */
+    if (category) {
+      query.category = category;
+    }
+
+    /* 🔥 SEARCH FILTER */
+    if (search) {
+      query.name = { $regex: search, $options: "i" };
+    }
+
+    /* 🔥 SORT */
+    let sortOption = {};
+    if (sort === "low") sortOption.price = 1;
+    if (sort === "high") sortOption.price = -1;
+    if (sort === "new") sortOption.createdAt = -1;
+
+    const skip = (page - 1) * limit;
+
+    const products = await Product.find(query)
+      .populate("category")
+      .sort(sortOption)
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await Product.countDocuments(query);
+
+    res.json({
+      products,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page: Number(page),
+    });
+
   } catch (err) {
+    console.error("GET PRODUCTS ERROR:", err);
     res.status(500).json({ message: err.message });
   }
 };
