@@ -7,6 +7,7 @@ const {
   updateCartItem,
   clearCart,
    removeCartItem,  
+   removeMultipleItems
 } = require("../controllers/cart.controller");
 
 /* ================= CART ROUTES ================= */
