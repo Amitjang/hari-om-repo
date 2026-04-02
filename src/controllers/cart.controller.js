@@ -4,7 +4,6 @@ const Product = require("../models/product.model");
 /* =======================================================
    ADD TO CART
 ======================================================= */
-
 exports.addToCart = async (req, res) => {
   try {
     const { userId, productId, quantity = 1 } = req.body;
@@ -81,7 +80,6 @@ exports.addToCart = async (req, res) => {
 /* =======================================================
    GET CART
 ======================================================= */
-
 exports.getCart = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -119,7 +117,6 @@ exports.getCart = async (req, res) => {
 /* =======================================================
    UPDATE CART ITEM
 ======================================================= */
-
 exports.updateCartItem = async (req, res) => {
   try {
     const { userId, quantity } = req.body;
@@ -189,7 +186,6 @@ exports.updateCartItem = async (req, res) => {
 /* =======================================================
    REMOVE SINGLE ITEM
 ======================================================= */
-
 exports.removeCartItem = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -233,9 +229,53 @@ exports.removeCartItem = async (req, res) => {
 };
 
 /* =======================================================
+   🔥 REMOVE MULTIPLE ITEMS (NEW)
+======================================================= */
+exports.removeMultipleItems = async (req, res) => {
+  try {
+    const { userId, productIds } = req.body;
+
+    if (!userId || !Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid data",
+      });
+    }
+
+    const cart = await Cart.findOne({ user: userId });
+
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: "Cart not found",
+      });
+    }
+
+    cart.items = cart.items.filter(
+      (item) => !productIds.includes(item.product.toString())
+    );
+
+    await cart.save();
+    await cart.populate("items.product");
+
+    res.status(200).json({
+      success: true,
+      message: "Selected items removed",
+      data: cart,
+    });
+
+  } catch (error) {
+    console.error("REMOVE MULTIPLE ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/* =======================================================
    CLEAR CART
 ======================================================= */
-
 exports.clearCart = async (req, res) => {
   try {
     const { userId } = req.params;

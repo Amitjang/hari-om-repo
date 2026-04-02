@@ -18,6 +18,7 @@ router.get("/getCart/:userId", getCart);
 router.post("/addToCart", addToCart);
 
 // Update item quantity
+router.post("/remove-multiple", removeMultipleItems);
 router.put("/update/:productId", updateCartItem);
 
 // Clear cart by userId
