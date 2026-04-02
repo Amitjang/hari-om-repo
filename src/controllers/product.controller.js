@@ -43,6 +43,11 @@ exports.createProduct = async (req, res) => {
       image: `/uploads/${req.file.filename}`,
     });
 
+    // ✅ FIX: INCREASE CATEGORY COUNT
+    await Category.findByIdAndUpdate(category, {
+      $inc: { productCount: 1 },
+    });
+
     res.status(201).json(product);
 
   } catch (err) {
@@ -65,17 +70,14 @@ exports.getProducts = async (req, res) => {
 
     const query = {};
 
-    /* 🔥 CATEGORY FILTER */
     if (category) {
       query.category = category;
     }
 
-    /* 🔥 SEARCH FILTER */
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }
 
-    /* 🔥 SORT */
     let sortOption = {};
     if (sort === "low") sortOption.price = 1;
     if (sort === "high") sortOption.price = -1;
@@ -123,7 +125,7 @@ exports.updateProduct = async (req, res) => {
       imagePath = `/uploads/${req.file.filename}`;
     }
 
-    // 🔥 FIX: RECALCULATE PRICE
+    // 🔥 PRICE FIX
     if (req.body.originalPrice) {
       const priceNum = Number(req.body.originalPrice);
       const discountNum = Number(req.body.discount || 0);
@@ -151,8 +153,29 @@ exports.updateProduct = async (req, res) => {
 
 exports.deleteProduct = async (req, res) => {
   try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    // ✅ FIX: DECREASE CATEGORY COUNT
+    if (product.category) {
+      await Category.findByIdAndUpdate(product.category, {
+        $inc: { productCount: -1 },
+      });
+    }
+
+    // OPTIONAL: DELETE IMAGE
+    if (product.image) {
+      const imagePath = path.join(__dirname, "..", product.image);
+      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+    }
+
     await Product.findByIdAndDelete(req.params.id);
+
     res.json({ message: "Deleted" });
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
