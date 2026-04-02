@@ -16,7 +16,8 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://hari-om-pharma-admin-panel.vercel.app",
   "https://hari-om-pharma-web.vercel.app",
-  "hari-om-pharma-web-git-main-amitjangs-projects.vercel.app"
+  "hari-om-pharma-web-git-main-amitjangs-projects.vercel.app",
+  "https://hari-om-pharma-web-amitjangs-projects.vercel.app"
 ];
 
 app.use(
