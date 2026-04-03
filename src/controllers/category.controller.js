@@ -1,7 +1,6 @@
 const Category = require("../models/category.model");
 const Product = require("../models/product.model");
-const fs = require("fs");
-const path = require("path");
+const cloudinary = require("cloudinary").v2;
 
 /* ================= GET ALL ================= */
 
@@ -46,11 +45,12 @@ exports.createCategory = async (req, res) => {
       });
     }
 
-    const imagePath = `/uploads/${req.file.filename}`;
-
     const category = await Category.create({
       name: req.body.name,
-      image: imagePath,
+
+      // ✅ CLOUDINARY
+      image: req.file.path,
+      imagePublicId: req.file.filename,
     });
 
     res.status(201).json({
@@ -76,25 +76,26 @@ exports.updateCategory = async (req, res) => {
       });
     }
 
-    let imagePath = category.image;
+    let imageUrl = category.image;
+    let imagePublicId = category.imagePublicId;
 
+    // ✅ If new image uploaded
     if (req.file) {
-      if (category.image) {
-        const oldImage = path.join(__dirname, "..", category.image);
-
-        if (fs.existsSync(oldImage)) {
-          fs.unlinkSync(oldImage);
-        }
+      // 🔥 Delete old image from Cloudinary
+      if (category.imagePublicId) {
+        await cloudinary.uploader.destroy(category.imagePublicId);
       }
 
-      imagePath = `/uploads/${req.file.filename}`;
+      imageUrl = req.file.path;
+      imagePublicId = req.file.filename;
     }
 
     const updated = await Category.findByIdAndUpdate(
       req.params.id,
       {
         name: req.body.name,
-        image: imagePath,
+        image: imageUrl,
+        imagePublicId,
       },
       { new: true }
     );
@@ -130,6 +131,11 @@ exports.deleteCategory = async (req, res) => {
       return res.status(400).json({
         error: "Cannot delete category. Products exist in this category.",
       });
+    }
+
+    // 🔥 Delete image from Cloudinary
+    if (category.imagePublicId) {
+      await cloudinary.uploader.destroy(category.imagePublicId);
     }
 
     await Category.findByIdAndDelete(req.params.id);

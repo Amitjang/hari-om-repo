@@ -1,7 +1,6 @@
 const Product = require("../models/product.model");
 const Category = require("../models/category.model");
-const fs = require("fs");
-const path = require("path");
+const cloudinary = require("cloudinary").v2;
 
 /* ================= CREATE ================= */
 
@@ -40,10 +39,12 @@ exports.createProduct = async (req, res) => {
       price: Math.round(finalPrice),
       stock: Number(stock || 0),
       category,
-      image: `/uploads/${req.file.filename}`,
+
+      // ✅ CLOUDINARY
+      image: req.file.path,          // URL
+      imagePublicId: req.file.filename, // for delete
     });
 
-    // ✅ FIX: INCREASE CATEGORY COUNT
     await Category.findByIdAndUpdate(category, {
       $inc: { productCount: 1 },
     });
@@ -70,9 +71,7 @@ exports.getProducts = async (req, res) => {
 
     const query = {};
 
-    if (category) {
-      query.category = category;
-    }
+    if (category) query.category = category;
 
     if (search) {
       query.name = { $regex: search, $options: "i" };
@@ -116,13 +115,18 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Not found" });
     }
 
-    let imagePath = product.image;
+    let imageUrl = product.image;
+    let imagePublicId = product.imagePublicId;
 
+    // ✅ If new image uploaded
     if (req.file) {
-      const oldImage = path.join(__dirname, "..", product.image);
-      if (fs.existsSync(oldImage)) fs.unlinkSync(oldImage);
+      // 🔥 Delete old image from Cloudinary
+      if (product.imagePublicId) {
+        await cloudinary.uploader.destroy(product.imagePublicId);
+      }
 
-      imagePath = `/uploads/${req.file.filename}`;
+      imageUrl = req.file.path;
+      imagePublicId = req.file.filename;
     }
 
     // 🔥 PRICE FIX
@@ -137,7 +141,11 @@ exports.updateProduct = async (req, res) => {
 
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
-      { ...req.body, image: imagePath },
+      {
+        ...req.body,
+        image: imageUrl,
+        imagePublicId,
+      },
       { new: true }
     );
 
@@ -159,17 +167,16 @@ exports.deleteProduct = async (req, res) => {
       return res.status(404).json({ message: "Not found" });
     }
 
-    // ✅ FIX: DECREASE CATEGORY COUNT
+    // ✅ Decrease category count
     if (product.category) {
       await Category.findByIdAndUpdate(product.category, {
         $inc: { productCount: -1 },
       });
     }
 
-    // OPTIONAL: DELETE IMAGE
-    if (product.image) {
-      const imagePath = path.join(__dirname, "..", product.image);
-      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+    // 🔥 Delete from Cloudinary
+    if (product.imagePublicId) {
+      await cloudinary.uploader.destroy(product.imagePublicId);
     }
 
     await Product.findByIdAndDelete(req.params.id);
@@ -185,7 +192,9 @@ exports.deleteProduct = async (req, res) => {
 
 exports.getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id)
+      .populate("category");
+
     res.json(product);
   } catch (err) {
     res.status(500).json({ message: err.message });
