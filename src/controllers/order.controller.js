@@ -148,27 +148,15 @@ exports.getOrdersByCustomer = async (req, res) => {
 
     const orders = await Order.find({ user: customerId })
       .populate("items.product", "name price image")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // ✅ Format response for Flutter (IMPORTANT)
-    const formattedOrders = orders.map(order => ({
-      ...order,
-      items: order.items.map(item => ({
-        productId: item.product?._id,
-        name: item.product?.name || item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.product?.image || null,
-      })),
-    }));
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
-      data: formattedOrders,
+      data: orders,
     });
 
   } catch (error) {
+    console.log("ORDER ERROR:", error); // 👈 ADD THIS
     res.status(500).json({
       success: false,
       message: error.message,
